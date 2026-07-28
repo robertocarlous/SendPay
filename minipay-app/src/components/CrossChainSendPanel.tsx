@@ -415,19 +415,45 @@ export function CrossChainSendPanel({ walletAddress, onClose, onSuccess }: Props
                     </div>
                   </div>
 
-                  {quote && (
-                    <div className="bg-cowry-card border border-cowry-green/30 rounded-2xl p-4 space-y-2">
-                      <p className="text-[10px] font-semibold text-cowry-green uppercase tracking-widest">
-                        Route · {quote.tool}
-                      </p>
-                      <p className="text-xs text-cowry-muted whitespace-pre-wrap leading-relaxed">
-                        {quote.summary}
-                      </p>
-                      <p className="text-[10px] text-cowry-muted border-t border-cowry-border/50 pt-2">
-                        You sign two transactions in MiniPay: a one-time approval (first time only), then the bridge send. Your funds stay in your wallet until you confirm.
-                      </p>
-                    </div>
-                  )}
+                  {quote && (() => {
+                    const sentUSD    = Number(quote.estimate.fromAmount) / 1e6;
+                    const recvUSD    = Number(quote.estimate.toAmountMin) / 1e6;
+                    const feeUSD     = sentUSD - recvUSD;
+                    const feePct     = sentUSD > 0 ? (feeUSD / sentUSD) * 100 : 0;
+                    const durationMin = Math.ceil(quote.estimate.executionDuration / 60);
+                    const highFee    = feePct > 5;
+                    return (
+                      <div className="space-y-2">
+                        {highFee && (
+                          <div className="px-3 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-400 text-xs">
+                            High fee — bridge fees are fixed costs that hurt small amounts. Send more to reduce the fee %.
+                          </div>
+                        )}
+                        <div className="bg-cowry-card border border-cowry-green/30 rounded-2xl p-4 space-y-3">
+                          <p className="text-[10px] font-semibold text-cowry-green uppercase tracking-widest">
+                            Quote · {quote.tool}
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-cowry-muted">Recipient gets</span>
+                            <span className="text-base font-bold text-white">${recvUSD.toFixed(2)} USDC</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-cowry-muted">Bridge fee</span>
+                            <span className={`text-xs font-semibold ${highFee ? "text-yellow-400" : "text-cowry-muted"}`}>
+                              ${feeUSD.toFixed(2)} ({feePct.toFixed(1)}%)
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between border-t border-cowry-border/50 pt-2">
+                            <span className="text-xs text-cowry-muted">Est. time</span>
+                            <span className="text-xs text-cowry-muted">~{durationMin} min</span>
+                          </div>
+                          <p className="text-[10px] text-cowry-muted border-t border-cowry-border/50 pt-2">
+                            You sign two transactions in MiniPay: a one-time approval (first time only), then the bridge send. Your funds stay in your wallet until you confirm.
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </>
               )}
             </div>

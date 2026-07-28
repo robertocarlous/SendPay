@@ -38,14 +38,35 @@ export async function fetchTransactionHistory(
     throw new Error("Transaction history is not configured (missing ETHERSCAN_API_KEY).");
   }
 
-  const offset = pageSize * 2; // headroom for non-USDC/USDm/USDT transfers filtered out below
+  // 5x headroom: wallets with many non-stablecoin transfers need a wider window
+  // so we don't miss real USDC/USDm/USDT transfers that sit beyond the first few results.
+  const offset = pageSize * 5;
   // CeloScan's standalone v1 API is deprecated — Celo is now served via Etherscan's
   // unified multi-chain v2 API (https://docs.etherscan.io/v2-migration).
   const url = `https://api.etherscan.io/v2/api?chainid=${CELO_CHAIN_ID}&module=account&action=tokentx&address=${wallet}&sort=desc&offset=${offset}&page=${page}&apikey=${apiKey}`;
   const res = await fetch(url);
-  const json = (await res.json()) as { status: string; result: unknown[] | string };
 
-  if (json.status !== "1" || !Array.isArray(json.result)) {
+  if (!res.ok) {
+    throw new Error(`CeloScan request failed (${res.status}). Try again.`);
+  }
+
+  const json = (await res.json()) as {
+    status: string;
+    message: string;
+    result: unknown[] | string;
+  };
+
+  if (json.status !== "1") {
+    // Distinguish "wallet has no transactions" (empty array result) from API errors
+    // (result is a string like "Max rate limit reached" or "Invalid API Key").
+    if (Array.isArray(json.result) || String(json.result).toLowerCase().includes("no transactions")) {
+      return { items: [], hasMore: false };
+    }
+    const detail = typeof json.result === "string" ? json.result : json.message;
+    throw new Error(`Could not load transactions: ${detail || "unknown error"}. Try again in a moment.`);
+  }
+
+  if (!Array.isArray(json.result)) {
     return { items: [], hasMore: false };
   }
 
